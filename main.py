@@ -4,7 +4,8 @@ from dotenv import load_dotenv
 from google import genai
 from google.genai import types
 from prompts import system_prompt
-from call_function import available_functions
+from call_function import available_functions, call_function
+
 #gittest
 
 load_dotenv()
@@ -25,16 +26,29 @@ def main():
     if args.verbose:
         if response.usage_metadata == None:
             raise RuntimeError("Usage metadata is None.")
-        else:
-            print(f"User prompt:{args.user_prompt}")
-            print(f"Prompt tokens:{response.usage_metadata.prompt_token_count}")
-            print(f"Response tokens:{response.usage_metadata.candidates_token_count}")
-            print(response.text)
+    print(f"User prompt:{args.user_prompt}")
+    print(f"Prompt tokens:{response.usage_metadata.prompt_token_count}")
+    print(f"Response tokens:{response.usage_metadata.candidates_token_count}")
+    if not response.function_calls:
+        print(response.text)
+        return
     else:
+        tools_results = []
         for function_call in response.function_calls:
-            if function_call.name != "":
-                print(f"Calling function: {function_call.name}({function_call.args})")
-            else:
-                print(response.text)
+            tool_result = call_function(function_call, verbose=args.verbose)
+            tools_results.append(tool_result)
+            part = tool_result.parts[0]
+            fr= part.function_response
+            data=fr.response
+        if args.verbose:
+            print(f"calling function: {function_call.name}({function_call.args})")
+            print(f"-> {data['result']}")
+        if part.function_response is None or part.function_response.response is None:
+            raise RuntimeError("Function response is None or empty.")
+        if args.verbose:
+            print(f"-> {part.function_response.response}")
+            tools_results.append(part)
+            
+    
 if __name__ == "__main__":
     main()
